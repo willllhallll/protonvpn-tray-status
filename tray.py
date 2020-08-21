@@ -21,7 +21,8 @@ class Indicator():
         self.trayindicator = appindicator.Indicator.new("protonvpn-tray", red_icon, appindicator.IndicatorCategory.APPLICATION_STATUS)
         self.trayindicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.trayindicator.set_menu(self.menu())
-        self.cancel_interval = call_repeatedly(10, self.report_connection)
+        self.cancel_interval = call_repeatedly(5, self.report_connection)
+        self.report_connection()
 
     def menu(self):
         menu = gtk.Menu()
