@@ -1,9 +1,13 @@
 #!/usr/bin/python
 import os
+import sys
 import time
 import datetime
 import subprocess
 
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('AppIndicator3', '0.1')
 from gi.repository import Gtk as gtk, AppIndicator3 as appindicator, GObject as gobject
 from threading import Event, Thread
 
@@ -18,15 +22,16 @@ from protonvpn_cli.utils import (
 Set the local paths for the tray icons.
 '''
 current_path = os.path.dirname(os.path.realpath(__file__))
-green_icon = os.path.join(current_path, 'icons', 'green.png')
-red_icon = os.path.join(current_path, 'icons', 'red.png')
+GREEN_ICON = os.path.join(current_path, 'icons', 'green.png')
+RED_ICON = os.path.join(current_path, 'icons', 'red.png')
 
 class Indicator():
     def __init__(self):
+
         self.gtk = gtk
         self.gobject = gobject
-        self.trayindicator = appindicator.Indicator.new("protonvpn-tray", red_icon, appindicator.IndicatorCategory.APPLICATION_STATUS)
 
+        self.trayindicator = appindicator.Indicator.new("protonvpn-tray", RED_ICON, appindicator.IndicatorCategory.APPLICATION_STATUS)
         self.trayindicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.trayindicator.set_menu(self.menu())
 
@@ -43,6 +48,7 @@ class Indicator():
     `True` is returned to allow for scheduling of the next call.
     '''
     def main(self):
+
         self.report_is_connected()
         self.report_time_connected()
         self.report_location_connected()
@@ -58,6 +64,7 @@ class Indicator():
     - Exit
     '''
     def menu(self):
+
         self.menu = self.gtk.Menu()
 
         self.time_connected = self.gtk.MenuItem(label='')
@@ -66,9 +73,17 @@ class Indicator():
         self.location_connected = self.gtk.MenuItem(label='')
         self.menu.append(self.location_connected)
         
-        self.separator_0 = self.gtk.SeparatorMenuItem()
-        self.menu.append(self.separator_0)
-        self.separator_0.show()
+        self.separator_1 = self.gtk.SeparatorMenuItem()
+        self.menu.append(self.separator_1)
+        self.separator_1.show()
+
+        self.reconnect = self.gtk.MenuItem(label='Reconnect')
+        self.reconnect.connect('activate', self.try_reconnect)
+        self.menu.append(self.reconnect)
+
+        self.separator_2 = self.gtk.SeparatorMenuItem()
+        self.menu.append(self.separator_2)
+        self.separator_2.show()
 
         self.kill_switch = self.gtk.MenuItem(label='')
         self.menu.append(self.kill_switch)
@@ -76,9 +91,9 @@ class Indicator():
         self.dns_leak_protection = self.gtk.MenuItem(label='')
         self.menu.append(self.dns_leak_protection)
 
-        self.separator_1 = self.gtk.SeparatorMenuItem()
-        self.menu.append(self.separator_1)
-        self.separator_1.show()
+        self.separator_3= self.gtk.SeparatorMenuItem()
+        self.menu.append(self.separator_3)
+        self.separator_3.show()
 
         self.exittray = self.gtk.MenuItem('Exit')
         self.exittray.connect('activate', self.stop)
@@ -101,14 +116,15 @@ class Indicator():
                 self.connection_error = False
                 self.main()
                 
-            self.trayindicator.set_icon(green_icon)
+                
+            self.trayindicator.set_icon(GREEN_ICON)
 
         else:
             if not self.connection_error:
                 self.connection_error = True
                 self.main()
 
-            self.trayindicator.set_icon(red_icon)
+            self.trayindicator.set_icon(RED_ICON)
 
     '''
     Reports the current time elapsed since the connection was established.
@@ -180,9 +196,32 @@ class Indicator():
         self.dns_leak_protection.get_child().set_text("DNS Leak Protection: {}".format(dns_leak_protection_status))
 
     '''
+    Attempts to reconnect to the last VPN server
+    '''
+    def try_reconnect(self, _):
+        
+        process = subprocess.Popen([self.sudo_type, "protonvpn", "reconnect"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        try:
+            outs, errs = process.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            print("Error Whilst Attempting Reconnection: Timeout.")
+    
+    '''
+    Returns the user specified sudo type.
+    '''
+    @property
+    def sudo_type(self):
+
+        if "-p" in sys.argv:
+            return "pkexec"
+
+        return "sudo"
+
+    '''
     Quits the tray.
     '''
-    def stop(self, source):
+    def stop(self, _):
         self.gtk.main_quit()
 
 Indicator()
