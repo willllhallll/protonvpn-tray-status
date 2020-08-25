@@ -6,6 +6,10 @@ To install on Linux, clone this repository into the `/opt/` directory. To launch
 
 `nohup python3 /opt/protonvpn-status-tray/tray.py &`
 
+To display usage statistics in the tray, add the `-u` flag to the command:
+
+`nohup python3 /opt/protonvpn-status-tray/tray.py -u &`
+
 ### Dependencies
 
 Requires the ProtonVPN CLI package to be installed and configured:

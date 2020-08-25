@@ -16,6 +16,7 @@ from protonvpn_cli.utils import (
     get_config_value,
     get_servers,
     get_server_value,
+    get_transferred_data,
 )
 
 '''
@@ -34,10 +35,11 @@ class Indicator():
         self.trayindicator = appindicator.Indicator.new("protonvpn-tray", RED_ICON, appindicator.IndicatorCategory.APPLICATION_STATUS)
         self.trayindicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.trayindicator.set_menu(self.menu())
+        self.trayindicator.set_label("", "")
 
         self.connection_error = True;
 
-        self.gobject.timeout_add_seconds(1, self.main)
+        self.main_loop = self.gobject.timeout_add_seconds(1, self.main)
 
         self.main()
 
@@ -54,6 +56,9 @@ class Indicator():
         self.report_location_connected()
         self.report_kill_switch()
         self.report_dns_leak_protection()
+
+        if "-u" in sys.argv:
+            self.report_usage()
 
         return True
 
@@ -77,7 +82,7 @@ class Indicator():
         self.menu.append(self.separator_1)
         self.separator_1.show()
 
-        self.reconnect = self.gtk.MenuItem(label='Reconnect')
+        self.reconnect = self.gtk.MenuItem(label='')
         self.reconnect.connect('activate', self.try_reconnect)
         self.menu.append(self.reconnect)
 
@@ -110,21 +115,23 @@ class Indicator():
     '''
     def report_is_connected(self):
 
+        server = get_config_value("metadata", "connected_server")
+        self.reconnect.get_child().set_text("Reconnect to {}".format(server))
+
         if is_connected():
             
             if self.connection_error:
                 self.connection_error = False
                 self.main()
-                
-                
-            self.trayindicator.set_icon(GREEN_ICON)
+                self.trayindicator.set_icon(GREEN_ICON)
 
         else:
             if not self.connection_error:
                 self.connection_error = True
                 self.main()
+                self.trayindicator.set_icon(RED_ICON)
+                self.trayindicator.set_label("","")
 
-            self.trayindicator.set_icon(RED_ICON)
 
     '''
     Reports the current time elapsed since the connection was established.
@@ -195,6 +202,17 @@ class Indicator():
 
         self.dns_leak_protection.get_child().set_text("DNS Leak Protection: {}".format(dns_leak_protection_status))
 
+    
+    '''
+    Update the tray label with the current usage statistics.
+    '''
+    def report_usage(self):
+
+        sent_amount, received_amount = get_transferred_data()
+  
+        self.trayindicator.set_label("{0} 🠕🠗 {1}".format(sent_amount, received_amount), "")
+
+
     '''
     Attempts to reconnect to the last VPN server
     '''
@@ -206,7 +224,7 @@ class Indicator():
             outs, errs = process.communicate(timeout=30)
         except subprocess.TimeoutExpired:
             print("Error Whilst Attempting Reconnection: Timeout.")
-    
+
     '''
     Returns the user specified sudo type.
     '''
@@ -222,6 +240,7 @@ class Indicator():
     Quits the tray.
     '''
     def stop(self, _):
+        self.gobject.source_remove(self.main_loop)
         self.gtk.main_quit()
 
 Indicator()
