@@ -4,11 +4,11 @@ Uses the ProtonVPN CLI to pull and display basic connection status in the system
 
 To install on Linux, clone this repository into the `/opt/` directory. To launch on boot, add the following to your startup app list:
 
-`nohup python3 /opt/protonvpn-status-tray/tray.py &`
+`nohup python3 /opt/protonvpn-tray-status/tray.py &`
 
 To display usage statistics in the tray, add the `-u` flag to the command:
 
-`nohup python3 /opt/protonvpn-status-tray/tray.py -u &`
+`nohup python3 /opt/protonvpn-tray-status/tray.py -u &`
 
 ### Dependencies
 
@@ -29,4 +29,4 @@ https://github.com/ProtonVPN/linux-gui#visudo
 Alternatively, pass the `-p` flag to use PolyKit:
 
 - `sudo apt install libpolkit-agent-1-0`
-- `nohup python3 /opt/protonvpn-status-tray/tray.py -p &`
+- `nohup python3 /opt/protonvpn-tray-status/tray.py -p &`
