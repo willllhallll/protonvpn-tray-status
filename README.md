@@ -54,6 +54,7 @@ If a connection is dropped uncleanly, i.e. via network loss, or if you try and m
 - [x] Add basic connection functionality.
 - [x] Add basic reporting and monitoring.
 - [ ] Detect un-initialised ProtonVPN CLI.
+- [ ] Add better input feedback for actions.
 - [ ] Add support for fastest of country.
 - [ ] Add support for random server.
 - [ ] Add support for specific server.

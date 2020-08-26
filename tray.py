@@ -40,7 +40,7 @@ class Indicator():
         self.trayindicator.set_menu(self.set_menu())
         self.trayindicator.set_label("", "")
 
-        self.connection_error = True
+        self.connected = False
         self.auth_error = False
         self.network_error = False
 
@@ -136,18 +136,19 @@ class Indicator():
 
             if self.network_error:
                 self.trayindicator.set_icon(AMBER_ICON)
+            else:
+                self.trayindicator.set_icon(GREEN_ICON)
 
-            if self.connection_error:
-                self.connection_error = False
+            if not self.connected:
+                self.connected = True
                 self.auth_error = False
                 self.network_error = False
-                self.trayindicator.set_icon(GREEN_ICON)
-                
         else:
 
-            if not self.connection_error:
-                self.connection_error = True
-                self.trayindicator.set_icon(RED_ICON)      
+            if self.connected:
+                self.connected = False
+
+            self.trayindicator.set_icon(RED_ICON)      
 
     '''
     Reports the current time elapsed since the connection was established.
@@ -157,7 +158,7 @@ class Indicator():
 
         connection_time = "-"
 
-        if not self.connection_error and not self.auth_error and not self.network_error:
+        if self.connected and not self.auth_error and not self.network_error:
             try:
                 connected_time = get_config_value("metadata", "connected_time")
                 connection_time = time.time() - int(connected_time)
@@ -176,7 +177,7 @@ class Indicator():
 
         location_string = "-"
         
-        if not self.connection_error and not self.auth_error and not self.network_error:
+        if self.connected and not self.auth_error and not self.network_error:
             try:
                 servers = get_servers()
                 connected_server = get_config_value("metadata", "connected_server")
@@ -227,7 +228,7 @@ class Indicator():
 
         info_string = ""
 
-        if "-u" in sys.argv and not self.connection_error and not self.auth_error and not self.network_error:
+        if "-u" in sys.argv and self.connected and not self.auth_error and not self.network_error:
             sent_amount, received_amount = get_transferred_data()
             info_string = "{0} 🠕🠗 {1}".format(sent_amount, received_amount)
 
