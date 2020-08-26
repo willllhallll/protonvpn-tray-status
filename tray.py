@@ -25,6 +25,7 @@ Set the local paths for the tray icons.
 current_path = os.path.dirname(os.path.realpath(__file__))
 GREEN_ICON = os.path.join(current_path, 'icons', 'green.png')
 RED_ICON = os.path.join(current_path, 'icons', 'red.png')
+AMBER_ICON = os.path.join(current_path, 'icons', 'amber.png')
 
 class Indicator():
     def __init__(self):
@@ -34,13 +35,15 @@ class Indicator():
 
         self.trayindicator = appindicator.Indicator.new("protonvpn-tray", RED_ICON, appindicator.IndicatorCategory.APPLICATION_STATUS)
         self.trayindicator.set_status(appindicator.IndicatorStatus.ACTIVE)
-        self.trayindicator.set_menu(self.menu())
+        self.trayindicator.set_menu(self.set_menu())
         self.trayindicator.set_label("", "")
 
-        self.connection_error = True;
+        self.connection_error = True
+        self.auth_error = False
+        self.network_error = False
 
         self.main_loop = self.gobject.timeout_add_seconds(1, self.main)
-
+        
         self.main()
 
         self.gtk.main()
@@ -56,9 +59,7 @@ class Indicator():
         self.report_location_connected()
         self.report_kill_switch()
         self.report_dns_leak_protection()
-
-        if "-u" in sys.argv:
-            self.report_usage()
+        self.report_tray_info()
 
         return True
 
@@ -68,7 +69,7 @@ class Indicator():
     - Config info
     - Exit
     '''
-    def menu(self):
+    def set_menu(self):
 
         self.menu = self.gtk.Menu()
 
@@ -82,9 +83,17 @@ class Indicator():
         self.menu.append(self.separator_1)
         self.separator_1.show()
 
+        self.quick_connect = self.gtk.MenuItem(label='Quick Connect')
+        self.quick_connect.connect('activate', self.try_quick_connect)
+        self.menu.append(self.quick_connect)
+
         self.reconnect = self.gtk.MenuItem(label='')
         self.reconnect.connect('activate', self.try_reconnect)
         self.menu.append(self.reconnect)
+
+        self.disconnect = self.gtk.MenuItem(label='Disconnect')
+        self.disconnect.connect('activate', self.try_disconnect)
+        self.menu.append(self.disconnect)
 
         self.separator_2 = self.gtk.SeparatorMenuItem()
         self.menu.append(self.separator_2)
@@ -107,30 +116,30 @@ class Indicator():
         self.menu.show_all()
         return self.menu
 
-
     '''
     Verifies if currently connected to a server.
-    If the connection state changes, update the UI immediately.
     Sets the colour of the tray indicator icon to reflect the connetion status. 
     '''
     def report_is_connected(self):
 
-        server = get_config_value("metadata", "connected_server")
-        self.reconnect.get_child().set_text("Reconnect to {}".format(server))
+        try:
+            server = get_config_value("metadata", "connected_server")
+            self.reconnect.get_child().set_text("Reconnect to {}".format(server))
+        except (KeyError):
+            print("Error: No previous connection found. ")
 
         if is_connected():
-            
+
             if self.connection_error:
                 self.connection_error = False
-                self.main()
+                self.auth_error = False
+                self.network_error = False
                 self.trayindicator.set_icon(GREEN_ICON)
-
         else:
+
             if not self.connection_error:
                 self.connection_error = True
-                self.main()
                 self.trayindicator.set_icon(RED_ICON)
-                self.trayindicator.set_label("","")
 
 
     '''
@@ -205,25 +214,80 @@ class Indicator():
     
     '''
     Update the tray label with the current usage statistics.
+    If there is an authentication or network error, report this also
     '''
-    def report_usage(self):
+    def report_tray_info(self):
 
-        sent_amount, received_amount = get_transferred_data()
+        usage_string = ""
+
+        if "-u" in sys.argv:
+            sent_amount, received_amount = get_transferred_data()
+            usage_string = "{0} 🠕🠗 {1}".format(sent_amount, received_amount)
+
+        info_char = "🔐   " if self.auth_error else ""
+        info_char = "🔗   " if self.network_error else info_char
   
-        self.trayindicator.set_label("{0} 🠕🠗 {1}".format(sent_amount, received_amount), "")
+        self.trayindicator.set_label("{0}{1}".format(info_char, usage_string), "")
 
+    
+    '''
+    Attempts to connect to the fastest VPN server
+    '''
+    def try_quick_connect(self, _):
+
+        process = subprocess.Popen([self.sudo_type, "protonvpn", "connect", "-f"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        try:
+            response = process.communicate(timeout=30)
+            outs = response[0].decode().lower()
+
+            if "there was an error connecting to the protonvpn api" in outs:
+                self.network_error = True
+                print("Error Whist Attempting Quick Connect: Network Error.")
+
+            if "authentication failed" in outs:
+                self.auth_error = True
+                print("Error Whist Attempting Quick Connect: Authentication.")
+
+        except subprocess.TimeoutExpired:
+            print("Error Whist Attempting Quick Connect: Timeout.")
 
     '''
     Attempts to reconnect to the last VPN server
     '''
     def try_reconnect(self, _):
-        
+
         process = subprocess.Popen([self.sudo_type, "protonvpn", "reconnect"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
-            outs, errs = process.communicate(timeout=30)
+            response = process.communicate(timeout=30)
+            outs = response[0].decode().lower()
+
+            if "couldn't find a previous connection" in outs:
+                print("Error Whist Attempting Reconnection: No Previous Connection.")
+            
+            if "there was an error connecting to the protonvpn api" in outs:
+                self.network_error = True
+                print("Error Whist Attempting Reconnection: Network Error.")
+
+            if "authentication failed" in outs:
+                self.auth_error = True
+                print("Error Whilst Attempting Reconnection: Authentication.")
+
         except subprocess.TimeoutExpired:
             print("Error Whilst Attempting Reconnection: Timeout.")
+
+    '''
+    Attempts to disconnect from the VPN server
+    '''
+    def try_disconnect(self, _):
+
+        process = subprocess.Popen([self.sudo_type, "protonvpn", "disconnect"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        try:
+            process.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            print("Error Whist Attempting Disconnect: Timeout.")
 
     '''
     Returns the user specified sudo type.
