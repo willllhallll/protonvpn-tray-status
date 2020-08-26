@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import datetime
+import requests
 import subprocess
 
 import gi
@@ -17,6 +18,7 @@ from protonvpn_cli.utils import (
     get_servers,
     get_server_value,
     get_transferred_data,
+    call_api
 )
 
 '''
@@ -43,8 +45,10 @@ class Indicator():
         self.network_error = False
 
         self.main_loop = self.gobject.timeout_add_seconds(1, self.main)
+        self.network_loop = self.gobject.timeout_add_seconds(5, self.try_network)
         
         self.main()
+        self.try_network()
 
         self.gtk.main()
 
@@ -130,17 +134,20 @@ class Indicator():
 
         if is_connected():
 
+            if self.network_error:
+                self.trayindicator.set_icon(AMBER_ICON)
+
             if self.connection_error:
                 self.connection_error = False
                 self.auth_error = False
                 self.network_error = False
                 self.trayindicator.set_icon(GREEN_ICON)
+                
         else:
 
             if not self.connection_error:
                 self.connection_error = True
-                self.trayindicator.set_icon(RED_ICON)
-
+                self.trayindicator.set_icon(RED_ICON)      
 
     '''
     Reports the current time elapsed since the connection was established.
@@ -150,7 +157,7 @@ class Indicator():
 
         connection_time = "-"
 
-        if not self.connection_error:
+        if not self.connection_error and not self.auth_error and not self.network_error:
             try:
                 connected_time = get_config_value("metadata", "connected_time")
                 connection_time = time.time() - int(connected_time)
@@ -169,7 +176,7 @@ class Indicator():
 
         location_string = "-"
         
-        if not self.connection_error:
+        if not self.connection_error and not self.auth_error and not self.network_error:
             try:
                 servers = get_servers()
                 connected_server = get_config_value("metadata", "connected_server")
@@ -218,18 +225,17 @@ class Indicator():
     '''
     def report_tray_info(self):
 
-        usage_string = ""
+        info_string = ""
 
-        if "-u" in sys.argv:
+        if "-u" in sys.argv and not self.connection_error and not self.auth_error and not self.network_error:
             sent_amount, received_amount = get_transferred_data()
-            usage_string = "{0} 🠕🠗 {1}".format(sent_amount, received_amount)
+            info_string = "{0} 🠕🠗 {1}".format(sent_amount, received_amount)
 
-        info_char = "🔐   " if self.auth_error else ""
-        info_char = "🔗   " if self.network_error else info_char
+        info_string = "🔐" if self.auth_error else info_string
+        info_string = "🔗" if self.network_error else info_string
   
-        self.trayindicator.set_label("{0}{1}".format(info_char, usage_string), "")
+        self.trayindicator.set_label(info_string, "")
 
-    
     '''
     Attempts to connect to the fastest VPN server
     '''
@@ -241,16 +247,12 @@ class Indicator():
             response = process.communicate(timeout=30)
             outs = response[0].decode().lower()
 
-            if "there was an error connecting to the protonvpn api" in outs:
-                self.network_error = True
-                print("Error Whist Attempting Quick Connect: Network Error.")
-
             if "authentication failed" in outs:
                 self.auth_error = True
-                print("Error Whist Attempting Quick Connect: Authentication.")
+                print("Error Whilst Attempting Quick Connect: Authentication.")
 
         except subprocess.TimeoutExpired:
-            print("Error Whist Attempting Quick Connect: Timeout.")
+            print("Error Whilst Attempting Quick Connect: Timeout.")
 
     '''
     Attempts to reconnect to the last VPN server
@@ -262,13 +264,6 @@ class Indicator():
         try:
             response = process.communicate(timeout=30)
             outs = response[0].decode().lower()
-
-            if "couldn't find a previous connection" in outs:
-                print("Error Whist Attempting Reconnection: No Previous Connection.")
-            
-            if "there was an error connecting to the protonvpn api" in outs:
-                self.network_error = True
-                print("Error Whist Attempting Reconnection: Network Error.")
 
             if "authentication failed" in outs:
                 self.auth_error = True
@@ -288,6 +283,26 @@ class Indicator():
             process.communicate(timeout=30)
         except subprocess.TimeoutExpired:
             print("Error Whist Attempting Disconnect: Timeout.")
+
+    '''
+    Attempts to ping the ProtonVPN API Endpoint. 
+    '''
+    def try_network(self):
+        
+        process = subprocess.Popen(["ping", "-c", "1", "api.protonvpn.ch"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        try:
+            process.communicate(timeout=4)
+            if process.returncode == 0:
+                self.network_error = False
+            else:
+                self.network_error = True
+            
+        except subprocess.TimeoutExpired:
+            self.network_error = True
+            print("Error: No network")
+        
+        return True
 
     '''
     Returns the user specified sudo type.

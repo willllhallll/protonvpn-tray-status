@@ -39,7 +39,7 @@ Alternatively, pass the `-p` flag and use PolyKit:
 
 ## Usage
 
-The ProtonVPN icon will be red when disconnected, and green when active OpenVPN connection is detected. Note, in the event of a network error, the icon will remain green as the OpenVPN session is still technically established.
+The ProtonVPN icon will be red when disconnected and unprotected, amber when there the OpenVPN session is active but the internet is unreachable (e.g. Kill Switch, reconnect required, network loss) and green when active OpenVPN connection is detected.
 
 If there is an authentication error, a padlock and key icon (🔐) will be displayed in the tray to prompt you to verify your credentials or ensure not too many connections have been made on your account.
 
@@ -47,7 +47,7 @@ If there is a network error when trying to connect or reconnect, a link (🔗) i
 
 ### Note on Authentication Errors
 
-If a connection is dropped uncleanly, i.e. via network loss, or if you try and make a number of repeated connection attempts, ProtonVPN sometimes fails to properly track the number of active connections on your account. This is reported to the ProtonVPN CLI as an authentication error. If this is the case for you when trying to connect, and you are certain you have used the correct OpenVPN Client Credentials in `protonvpn init`, then the only solution is to please wait a little while before trying to reconnect (or bug ProtonVPN to make things better).
+If a connection is dropped uncleanly, i.e. via network loss, or if you try and make a number of repeated connection attempts, ProtonVPN sometimes fails to properly track the number of active connections on your account. This is reported to the ProtonVPN CLI as an authentication error. If this is the case for you when trying to connect, and you are certain you have used the correct OpenVPN Client Credentials in `protonvpn init`, then the only solution is to please wait a little while before trying to reconnect (or bug ProtonVPN to make things better). Make a brew, take a stroll, let time tick by for a minute or so.
 
 ### Status
 
