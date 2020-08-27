@@ -45,7 +45,7 @@ class Indicator():
         self.network_error = False
 
         self.main_loop = self.gobject.timeout_add_seconds(1, self.main)
-        self.network_loop = self.gobject.timeout_add_seconds(5, self.try_network)
+        self.network_loop = self.gobject.timeout_add_seconds(8, self.try_network)
         
         self.main()
         self.try_network()
@@ -293,11 +293,12 @@ class Indicator():
         process = subprocess.Popen(["ping", "-c", "1", "api.protonvpn.ch"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
-            process.communicate(timeout=4)
+            process.communicate(timeout=7)
             if process.returncode == 0:
                 self.network_error = False
             else:
                 self.network_error = True
+                print("Error: No network")
             
         except subprocess.TimeoutExpired:
             self.network_error = True
