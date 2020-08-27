@@ -18,7 +18,7 @@ from protonvpn_cli.utils import (
     get_servers,
     get_server_value,
     get_transferred_data,
-    call_api
+    get_country_name
 )
 
 '''
@@ -41,6 +41,7 @@ class Indicator():
         self.trayindicator.set_label("", "")
 
         self.connected = False
+        self.current_server = "-"
         self.auth_error = False
         self.network_error = False
 
@@ -63,6 +64,7 @@ class Indicator():
         self.report_location_connected()
         self.report_kill_switch()
         self.report_dns_leak_protection()
+        self.report_data_transfer()
         self.report_tray_info()
 
         return True
@@ -82,14 +84,13 @@ class Indicator():
 
         self.location_connected = self.gtk.MenuItem(label='')
         self.menu.append(self.location_connected)
+
+        self.data_transfer = self.gtk.MenuItem(label='')
+        self.menu.append(self.data_transfer)
         
         self.separator_1 = self.gtk.SeparatorMenuItem()
         self.menu.append(self.separator_1)
         self.separator_1.show()
-
-        self.quick_connect = self.gtk.MenuItem(label='Quick Connect')
-        self.quick_connect.connect('activate', self.try_quick_connect)
-        self.menu.append(self.quick_connect)
 
         self.reconnect = self.gtk.MenuItem(label='')
         self.reconnect.connect('activate', self.try_reconnect)
@@ -103,15 +104,29 @@ class Indicator():
         self.menu.append(self.separator_2)
         self.separator_2.show()
 
+        self.fast_connect = self.gtk.MenuItem(label='➜ Fastest')
+        self.fast_connect.connect('activate', self.try_connect, ["--fastest"])
+        self.menu.append(self.fast_connect)
+
+        self.random_connect = self.gtk.MenuItem(label='➜ Random')
+        self.random_connect.connect('activate', self.try_connect, ["--random"])
+        self.menu.append(self.random_connect)
+
+        self.build_menu_profiles()  
+
+        self.separator_3 = self.gtk.SeparatorMenuItem()
+        self.menu.append(self.separator_3)
+        self.separator_3.show()
+
         self.kill_switch = self.gtk.MenuItem(label='')
         self.menu.append(self.kill_switch)
 
         self.dns_leak_protection = self.gtk.MenuItem(label='')
         self.menu.append(self.dns_leak_protection)
 
-        self.separator_3= self.gtk.SeparatorMenuItem()
-        self.menu.append(self.separator_3)
-        self.separator_3.show()
+        self.separator_4= self.gtk.SeparatorMenuItem()
+        self.menu.append(self.separator_4)
+        self.separator_4.show()
 
         self.exittray = self.gtk.MenuItem('Exit')
         self.exittray.connect('activate', self.stop)
@@ -121,16 +136,39 @@ class Indicator():
         return self.menu
 
     '''
+    If the user has specified profiles, construct the menu entries accordingly.
+    '''
+    def build_menu_profiles(self):
+
+        if "--profiles" in sys.argv:
+            self.separator_profile = self.gtk.SeparatorMenuItem()
+            self.menu.append(self.separator_profile)
+            self.separator_profile.show()
+
+            profile_flag_index = sys.argv.index("--profiles")
+            next_flag_index = len(sys.argv)
+
+            for i in range(profile_flag_index + 1, len(sys.argv)):
+                if "--" in sys.argv[i]:
+                    next_flag_index = i
+
+            for profile in sys.argv[profile_flag_index + 1:next_flag_index]:
+                if "#" in profile:
+                    direct_server = self.gtk.MenuItem(label="➜ "+ profile)
+                    direct_server.connect('activate', self.try_connect, [profile])
+                    self.menu.append(direct_server)
+                else:
+                    country_server = self.gtk.MenuItem(label="➜ " + get_country_name(profile))
+                    country_server .connect('activate', self.try_connect, ["--cc", profile])
+                    self.menu.append(country_server)
+
+    '''
     Verifies if currently connected to a server.
     Sets the colour of the tray indicator icon to reflect the connetion status. 
     '''
     def report_is_connected(self):
 
-        try:
-            server = get_config_value("metadata", "connected_server")
-            self.reconnect.get_child().set_text("Reconnect to {}".format(server))
-        except (KeyError):
-            print("Error: No previous connection found. ")
+        self.reconnect.get_child().set_text("Reconnect to {}".format(self.current_server))
 
         if is_connected():
 
@@ -171,22 +209,28 @@ class Indicator():
     '''
     Reports the location of the currently connected server.
     Sources the connected server from the ProtonVPN-CLI config, and the server info from the 
-    local ProtonVPN-CLI server JSON file. 
+    local ProtonVPN-CLI server JSON file.
+    Sets the `current_server` property of the indicator instance.
     '''
     def report_location_connected(self):
 
         location_string = "-"
-        
-        if self.connected and not self.auth_error and not self.network_error:
-            try:
-                servers = get_servers()
-                connected_server = get_config_value("metadata", "connected_server")
+        connected_server = "-"
+
+        try:
+            servers = get_servers()
+            connected_server = get_config_value("metadata", "connected_server")
+
+            if self.connected and not self.auth_error and not self.network_error:
                 country_code = get_server_value(connected_server, "EntryCountry", servers)
                 city = get_server_value(connected_server, "City", servers)
                 location_string = "{city}, {cc}".format(cc=country_code, city=city)
-            except (BaseException):
-                print("Error Reporting Connected Server")
 
+        except (BaseException):
+            print("Error Reporting Connected Server")
+
+        self.current_server = connected_server
+        
         self.location_connected.get_child().set_text(location_string)
 
     '''
@@ -198,7 +242,14 @@ class Indicator():
 
         try:
             kill_switch_flag = get_config_value("USER", "killswitch")
-            kill_switch_status = "On" if kill_switch_flag == "1" else "Off"
+
+            if kill_switch_flag == "1":
+                kill_switch_status = "On (WAN & LAN)"
+            elif kill_switch_flag == "2":
+                kill_switch_status = "On (WAN)"
+            else:
+                kill_switch_status = "Off"
+
         except (BaseException):
             print("Error Reporting Kill Switch Status")
 
@@ -219,18 +270,29 @@ class Indicator():
 
         self.dns_leak_protection.get_child().set_text("DNS Leak Protection: {}".format(dns_leak_protection_status))
 
+    '''
+    Reports the amount of data transferred by the client.
+    '''
+    def report_data_transfer(self):
+        
+        usage_string = "-"
+
+        if self.connected and not self.auth_error and not self.network_error:
+            sent_amount, received_amount = get_transferred_data()
+            usage_string = "{0} 🠕🠗 {1}".format(sent_amount, received_amount)
+
+        self.data_transfer.get_child().set_text(usage_string)
     
     '''
-    Update the tray label with the current usage statistics.
-    If there is an authentication or network error, report this also
+    Update the tray label with the currently connected server.
+    If there is an authentication or network error, report this instead.
     '''
     def report_tray_info(self):
 
         info_string = ""
 
-        if "-u" in sys.argv and self.connected and not self.auth_error and not self.network_error:
-            sent_amount, received_amount = get_transferred_data()
-            info_string = "{0} 🠕🠗 {1}".format(sent_amount, received_amount)
+        if self.connected and not self.auth_error and not self.network_error:
+            info_string = self.current_server
 
         info_string = "🔐" if self.auth_error else info_string
         info_string = "🔗" if self.network_error else info_string
@@ -238,11 +300,13 @@ class Indicator():
         self.trayindicator.set_label(info_string, "")
 
     '''
-    Attempts to connect to the fastest VPN server
+    Attempts to connect to a VPN server, specifying flags for the connection command. 
     '''
-    def try_quick_connect(self, _):
+    def try_connect(self, _, flags):
 
-        process = subprocess.Popen([self.sudo_type, "protonvpn", "connect", "-f"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        command_array = [self.sudo_type, "protonvpn", "connect"] + flags
+
+        process = subprocess.Popen(command_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             response = process.communicate(timeout=30)
@@ -312,7 +376,7 @@ class Indicator():
     @property
     def sudo_type(self):
 
-        if "-p" in sys.argv:
+        if "--polykit" in sys.argv:
             return "pkexec"
 
         return "sudo"
