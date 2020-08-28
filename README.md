@@ -63,3 +63,5 @@ If you enter an invalid country code or server, or your ProtonVPN plan does not 
 - [x] Add support for random server.
 - [x] Add support for specific server.
 - [ ] Add server browser.
+- [ ] P2P and Secure Core support.
+- [ ] Update ProtonVPN CLI config from the tray.
