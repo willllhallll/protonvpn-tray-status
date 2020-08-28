@@ -18,9 +18,11 @@ Requires gir1.2-appindicator3 and gir1.2-gtk-3.0 :
 
 ## Install and Start
 
-To install on Linux, clone this repository into the `/opt/` directory. To launch on boot, add the following to your startup app list:
+To install on Linux, clone this repository into the `/opt/` directory. To launch, run the following command:
 
 `nohup python3 /opt/protonvpn-tray-status/tray.py &`
+
+To launch on boot, add the above to your startup app list. On Ubuntu, this is managed in settings by searching for "Startup Applications".
 
 ### Authentication Note
 
