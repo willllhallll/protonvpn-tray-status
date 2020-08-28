@@ -223,8 +223,9 @@ class Indicator():
 
             if self.connected and not self.auth_error and not self.network_error:
                 country_code = get_server_value(connected_server, "EntryCountry", servers)
+                country_string = get_country_name(country_code)
                 city = get_server_value(connected_server, "City", servers)
-                location_string = "{city}, {cc}".format(cc=country_code, city=city)
+                location_string = "{city}, {country}".format(country=country_string, city=city)
 
         except (BaseException):
             print("Error Reporting Connected Server")
