@@ -28,7 +28,7 @@ The tray requires super user privileges to manage connections. Update the sudo-e
 
 https://github.com/ProtonVPN/linux-gui#visudo
 
-Alternatively, pass the `-p` flag and use PolyKit:
+Alternatively, pass the `--polykit` flag and use PolyKit:
 
 - `sudo apt install libpolkit-agent-1-0`
 - `nohup python3 /opt/protonvpn-tray-status/tray.py --polykit &`
