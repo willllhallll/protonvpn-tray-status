@@ -18,11 +18,15 @@ Requires gir1.2-appindicator3 and gir1.2-gtk-3.0 :
 
 ## Install and Start
 
-To install on Linux, clone this repository into the `/opt/` directory. To launch, run the following command:
+To install on Linux, clone this repository into the `/opt/` directory. To launch from the terminal in the background, use `nohup` to wrap the following command:
 
 `nohup python3 /opt/protonvpn-tray-status/tray.py &`
 
-To launch on boot, add the above to your startup app list. On Ubuntu, this is managed in settings by searching for "Startup Applications".
+Don't forget the `&` at the end!
+
+To launch on boot, add the following command to your startup app list - on Ubuntu, this is managed in settings by searching for "Startup Applications":
+
+`python3 /opt/protonvpn-tray-status/tray.py`
 
 ### Authentication Note
 
@@ -33,7 +37,7 @@ https://github.com/ProtonVPN/linux-gui#visudo
 Alternatively, pass the `--polykit` flag and use PolyKit:
 
 - `sudo apt install libpolkit-agent-1-0`
-- `nohup python3 /opt/protonvpn-tray-status/tray.py --polykit &`
+- `python3 /opt/protonvpn-tray-status/tray.py --polykit`
 
 ## Usage
 
@@ -51,7 +55,7 @@ If a connection is dropped uncleanly, i.e. via network loss, or if you try and m
 
 To add connection profiles, add the `--profiles` flag to the launch command, followed by either a country code or an exact server name. As an example, the following would give connection profiles for Swizerland, UK#13 and the United States:
 
-`nohup python3 /opt/protonvpn-tray-status/tray.py --profiles CH UK#13 US &`
+`python3 /opt/protonvpn-tray-status/tray.py --profiles CH UK#13 US`
 
 If you enter an invalid country code or server, or your ProtonVPN plan does not permit connection to that server, then the connection will simply fail.
 
